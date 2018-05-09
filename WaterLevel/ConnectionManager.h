@@ -18,9 +18,14 @@ class ConnectionManager {
     ConnectionManager(int pin);
     void setup();
     void setMessageCallback(MQTTClientCallbackSimple cb);
-    void loop() ;
+    void loop();
     void publish(String topicPart, String message);
     String createTopic(String topicPart, bool set);
+
+    //ToDo: Remove save callback
+    void setSaveCallback(void (*func)(void));
+    bool shouldSaveConfig = false;
+
 
   private:
     //Settings made in WiFiManager
@@ -28,18 +33,15 @@ class ConnectionManager {
     char mqttPort[6] = {'1', '8', '8', '3', '\0'};
     char mqttUser [20];
     char mqttPass [20];
+    char baseTopic [50]= {'H', 'o', 'u', 's', 'e', '/', 'O', 'u', 't', 'd', 'o', 'o', 'r', '/', 'G', 'r', 'e', 'e', 'n', 'H', 'o', 'u', 's', 'e', '\0'};; //House/Outdoor/GreenHouse"
+    char hostname [15] = {'G', 'r', 'e', 'e', 'n', 'H', 'o', 'u', 's', 'e', '\0'}; //"GreenHouse"
 
-    bool shouldSaveConfig = false;
     int _pin;
-
-
-#define basetopic "MyHouse/Indoor/MyRoom/"
-#define hostname          "MyRoom"
 
     WiFiClient net;
     MQTTClient mqtt;
+    void (*_savecallback)(void) = NULL;
 
-    void saveConfigCallback ();
     void mountFileSystem();
     void setupOta();
     void printWifiConnected();
