@@ -5,13 +5,12 @@ ConnectionManager::ConnectionManager(int pin) {
   _pin = pin;
 }
 
-void ConnectionManager::saveConfigCallback () {
-  Serial.println("Should save config");
-  shouldSaveConfig = true;
-}
-
 void ConnectionManager::setMessageCallback(MQTTClientCallbackSimple cb) {
   mqtt.onMessage(cb);
+}
+
+void ConnectionManager::setSaveCallback(void (*func)(void)) {
+  _savecallback = func;
 }
 
 void ConnectionManager::setup() {
@@ -48,6 +47,7 @@ void ConnectionManager::loop() {
   }
 
   if (digitalRead(_pin) == LOW ) {
+    Serial.println("Button hit");
     showConfigPortal();
   }
 
@@ -93,6 +93,8 @@ void ConnectionManager::mountFileSystem() {
           strcpy(mqttPort, json["mqttPort"]);
           strcpy(mqttUser, json["mqttUser"]);
           strcpy(mqttPass, json["mqttPass"]);
+          strcpy(baseTopic, json["baseTopic"]);
+          strcpy(hostname, json["hostname"]);
 
         } else {
           Serial.println("failed to load json config");
@@ -178,28 +180,30 @@ void ConnectionManager::reconnectMqtt() {
 
 String ConnectionManager::createTopic(String topicPart, bool set) {
   if (set) {
-    return String(basetopic) + topicPart + "/Set";
+    return String(baseTopic) + topicPart + "/Set";
   } else {
-    return String(basetopic) + topicPart;
+    return String(baseTopic) + '/' + topicPart;
   }
 }
 
 void ConnectionManager::showConfigPortal() {
   WiFiManagerParameter custom_mqtt_server("server", "mqtt server", mqttServer, 40);
-  WiFiManagerParameter custom_mqtt_port("port", "mqtt port", mqttPort, 6);
-  WiFiManagerParameter custom_mqtt_user("user", "mqtt user", mqttUser, 20);
-  WiFiManagerParameter custom_mqtt_pass("pass", "mqtt pass", mqttPass, 20);
+  WiFiManagerParameter custom_mqtt_port("port", "mqtt port", mqttPort, sizeof(mqttPort));
+  WiFiManagerParameter custom_mqtt_user("user", "mqtt user", mqttUser, sizeof(mqttUser));
+  WiFiManagerParameter custom_mqtt_pass("pass", "mqtt pass", mqttPass, sizeof(mqttPass));
+  WiFiManagerParameter custom_basetopic("basetopic", "base topic", baseTopic, 50);
+  WiFiManagerParameter custom_hostname("hostname", "hostname", hostname, sizeof(hostname));
 
   WiFiManager wifiManager;
 
-
-  //wifiManager.setSaveConfigCallback(saveConfigCallback);
-
-
+wifiManager.setSaveConfigCallback(_savecallback);
+  
   wifiManager.addParameter(&custom_mqtt_server);
   wifiManager.addParameter(&custom_mqtt_port);
   wifiManager.addParameter(&custom_mqtt_user);
   wifiManager.addParameter(&custom_mqtt_pass);
+  wifiManager.addParameter(&custom_basetopic);
+  wifiManager.addParameter(&custom_hostname);
 
   //reset settings - for testing
   //wifiManager.resetSettings();
@@ -221,6 +225,8 @@ void ConnectionManager::showConfigPortal() {
   strcpy(mqttPort, custom_mqtt_port.getValue());
   strcpy(mqttUser, custom_mqtt_user.getValue());
   strcpy(mqttPass, custom_mqtt_pass.getValue());
+  strcpy(baseTopic, custom_basetopic.getValue());
+  strcpy(hostname, custom_hostname.getValue());
 
   if (shouldSaveConfig) {
     Serial.println("saving config");
@@ -230,6 +236,8 @@ void ConnectionManager::showConfigPortal() {
     json["mqttPort"] = mqttPort;
     json["mqttUser"] = mqttUser;
     json["mqttPass"] = mqttPass;
+    json["baseTopic"] = baseTopic;
+    json["hostname"] = hostname;
 
     File configFile = SPIFFS.open("/config.json", "w");
     if (!configFile) {
@@ -242,3 +250,4 @@ void ConnectionManager::showConfigPortal() {
     //end save
   }
 }
+
